@@ -123,39 +123,6 @@ class Solution:
         assert score == self.get_score()
 
 
-class AccessedInvalidCandidate(Exception):
-    pass
-
-
-class SkipInvalidCandidateIterator:
-    def __init__(self, it: tp.Iterator[tuple[TCandidateKey, TRouteKey | None]]) -> None:
-        self.it = it
-    
-    def __iter__(self) -> tp.Iterator[tuple[TCandidateKey, TRouteKey | None]]:
-        return self
-
-    def __next__(self) -> tuple[TCandidateKey, TRouteKey | None]:
-        while True:
-            try:
-                return next(self.it)
-            except AccessedInvalidCandidate:
-                continue
-
-
-class SkipInvalidCandidateIterator:
-    def __init__(self, it: tp.Iterator[tuple[TCandidateKey, TRouteKey | None]]) -> None:
-        self.it = it
-    
-    def __iter__(self) -> tp.Iterator[tuple[TCandidateKey, TRouteKey | None]]:
-        return self
-
-    def __next__(self) -> tuple[TCandidateKey, TRouteKey | None]:
-        while True:
-            try:
-                return next(self.it)
-            except AccessedInvalidCandidate:
-                continue
-
 class SkipNoneIterator:
     def __init__(self, it: tp.Iterator[tuple[TCandidateKey, TRouteKey | None]]) -> None:
         self.it = it
@@ -225,12 +192,6 @@ class SolutionDiff:
         while result is None:
             result = random.choice(self._get_candidates_sequence_interface(busy=False))
         return result
-        
-        # while True: 1.1
-        #     try:
-        #         return random.choice(self._get_candidates_sequence_interface(busy=False))
-        #     except AccessedInvalidCandidate:
-        #         continue
 
     def get_busy_candidates_count(self) -> int:
         return self.busy_candidates_count
@@ -240,11 +201,6 @@ class SolutionDiff:
         while result is None:
             result = random.choice(self._get_candidates_sequence_interface(busy=True))
         return result
-        # while True: 1.1
-        #     try:
-        #         return random.choice(self._get_candidates_sequence_interface(busy=True))
-        #     except AccessedInvalidCandidate:
-        #         continue
 
     def get_random_candidate(self) -> tuple[TCandidateKey, TRouteKey | None]:
         idle_prob = self.get_idle_candidates_count() / (self.get_idle_candidates_count() + self.get_busy_candidates_count())
@@ -261,10 +217,8 @@ class SolutionDiff:
             if item is None:
                 return None
             candidate, route = item
-            # candidate, route = parent_candidates[index] 1.1
             if (candidate in self.idle_candidates) or (candidate in self.busy_candidates):
                 return None
-                # raise AccessedInvalidCandidate 1.1
             return candidate, route
 
         if busy is None:
@@ -281,7 +235,6 @@ class SolutionDiff:
 
     def iter_candidates(self, *, busy: bool | None=None, shuffle: bool=False):
         candidates = self._get_candidates_sequence_interface(busy=busy)
-        # return SkipInvalidCandidateIterator(shuffled_sequence(candidates) if shuffle else iter(candidates)) 1.1
         return SkipNoneIterator(shuffled_sequence(candidates) if shuffle else iter(candidates))
 
     def customer_overlap(self, customers) -> set[TCustomerKey]:
