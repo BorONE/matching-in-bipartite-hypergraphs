@@ -8,10 +8,10 @@ from lib.solution import Solution
 @dataclass
 class TaskSolution:
     """
-    In case of beamsearch
-    - score_history contains *best* soluions at each epoch
-    - score_history_all contains *all* soluions at each epoch
-    else not used yet
+    - `score_history` contains *best* soluions at each epoch
+    - `score_history_all` contains *all* soluions at each epoch
+
+    `score_history_all` makes more sense for beamsearch.
     """
 
     score_history: list[float] = field(default_factory=list)
