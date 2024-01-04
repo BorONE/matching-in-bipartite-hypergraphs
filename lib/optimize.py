@@ -81,8 +81,8 @@ def optimize(solutions):
     """
     Collapse nodes, with single child, e.g.
 
-           +->F
-           |
+              +->F
+              |
         A->B->C->D->E
 
     will be collapsed to 
