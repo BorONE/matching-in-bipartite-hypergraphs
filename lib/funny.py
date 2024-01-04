@@ -104,10 +104,6 @@ class SequenceInterfaceIterator:
         index = next(self.iter)
         return self.seq[index]
 
-
-VERSION = 0
-
-
 # TODO better typing
 class StackedSequences:
     """
@@ -115,25 +111,12 @@ class StackedSequences:
     """
 
     def __init__(self, *seqs):
-        if VERSION == 0:
-            self.seqs = seqs
-        if VERSION == 1:
-            self.seqs = []
-            for seq in seqs:
-                if isinstance(seq, StackedSequences):
-                    self.seqs.extend(subseq for subseq in seq.seqs)
-                else:
-                    self.seqs.append(seq)
+        self.seqs = seqs
         cumlen = 0
         self.cumlens = [(0, cumlen)]
         for i, seq in enumerate(self.seqs, 1):
             cumlen += len(seq)
             self.cumlens.append((i, cumlen))
-        
-
-    @staticmethod
-    def from_interfaces(*interfaces):
-        return StackedSequences(*(SequenceInterface(*interface) for interface in interfaces))
 
     def __getitem__(self, index: int):
         # Can be done with binsearch for bigger stacks, but for our purposes
