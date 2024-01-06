@@ -5,8 +5,6 @@ import random
 from copy import deepcopy
 import typing as tp
 
-import scipy.stats as sps
-
 from lib.trace import Trace, TCandidateKey, TRouteKey, TCustomerKey
 from lib.funny import DictWithRandomChoice, SequenceInterface, StackedSequences, shuffled_sequence
 
@@ -59,11 +57,12 @@ class Solution:
         return self.busy_candidates.get_random_item()
 
     def get_random_candidate(self) -> tuple[TCandidateKey, TRouteKey | None]:
-        idle_prob = self.get_idle_candidates_count() / (self.get_idle_candidates_count() + self.get_busy_candidates_count())
-        if sps.bernoulli(idle_prob).rvs() == 1:
-            return self.get_random_idle_candidate()
-        else:
-            return self.get_random_busy_candidate()
+        choice = random.choices(
+            [self.get_random_idle_candidate, self.get_random_busy_candidate],
+            weights=[self.get_idle_candidates_count(), self.get_busy_candidates_count()],
+            k=1,
+        )[0]
+        return choice()
 
     def _get_candidates_sequence_interface(self, *, busy: bool | None=None):
         if busy is None:
@@ -203,11 +202,12 @@ class SolutionDiff:
         return result
 
     def get_random_candidate(self) -> tuple[TCandidateKey, TRouteKey | None]:
-        idle_prob = self.get_idle_candidates_count() / (self.get_idle_candidates_count() + self.get_busy_candidates_count())
-        if sps.bernoulli(idle_prob).rvs() == 1:
-            return self.get_random_idle_candidate()
-        else:
-            return self.get_random_busy_candidate()
+        choice = random.choices(
+            [self.get_random_idle_candidate, self.get_random_busy_candidate],
+            weights=[self.get_idle_candidates_count(), self.get_busy_candidates_count()],
+            k=1,
+        )[0]
+        return choice()
 
     def _get_candidates_sequence_interface(self, *, busy: bool | None=None):
         parent_candidates = self.parent._get_candidates_sequence_interface(busy=busy)
