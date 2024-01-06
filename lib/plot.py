@@ -13,8 +13,7 @@ def solve_history(
     subplot_figsize: tuple=(7.5, 3),
     alpha: float=0.5
 ) -> None:
-    tasks_count = last_n or len(tasks)
-    cols, rows = 2, (tasks_count - 1) // 2 + 1
+    cols, rows = 2, (len(tasks) - 1) // 2 + 1
     figsize = (subplot_figsize[0] * cols, subplot_figsize[1] * rows)
     plt.figure(figsize=figsize)
 
