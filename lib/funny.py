@@ -10,6 +10,7 @@ from collections.abc import Sequence
 TKey = tp.TypeVar('TKey')
 TValue = tp.TypeVar('TValue')
 TIndex = int
+TLen = int
 
 
 class DictWithRandomChoice(tp.Generic[TKey, TValue]):
@@ -104,19 +105,21 @@ class SequenceInterfaceIterator:
         index = next(self.iter)
         return self.seq[index]
 
+
 # TODO better typing
 class StackedSequences:
     """
     Provides view interface for stack of sequences with minimal overhead
     """
 
-    def __init__(self, *seqs):
+    def __init__(self, *seqs: SequenceInterface):
         self.seqs = seqs
         cumlen = 0
-        self.cumlens = [(0, cumlen)]
+        self.cumlens: list[tuple[TIndex, TLen]] = [(0, cumlen)]
         for i, seq in enumerate(self.seqs, 1):
             cumlen += len(seq)
             self.cumlens.append((i, cumlen))
+        (_, self.total_len) = self.cumlens.pop()
 
     def __getitem__(self, index: int):
         # Can be done with binsearch for bigger stacks, but for our purposes
@@ -131,8 +134,7 @@ class StackedSequences:
                 return seq[index - cumlen]
 
     def __len__(self) -> int:
-        _, total_len = self.cumlens[-1]
-        return total_len
+        return self.total_len
 
     def __iter__(self) -> tp.Iterator:
         return chain(*(iter(seq) for seq in self.seqs))
