@@ -1,5 +1,5 @@
+import random
 import numpy as np
-import scipy.stats as sps
 import typing as tp
 
 from lib.optimize import optimize
@@ -39,9 +39,11 @@ def iterate_anneal(curr: X, f_curr: float, temp: float, f: Metric[X], A: Neighbo
     next = A(curr)
     f_next = f(next)
 
-    prob = evaluate_probability(f_curr, f_next, temp)
-    take_next = sps.bernoulli(prob).rvs() == 1
-    return (next, f_next) if take_next else (curr, f_curr)
+    take_next_prob = evaluate_probability(f_curr, f_next, temp)
+    return random.choices(
+        [(next, f_next), (curr, f_curr)],
+        cum_weights=[take_next_prob, 1],
+    )[0]
 
 
 def anneal(init: X, temp_it: tp.Iterator[float], f: Metric[X], A: Neighbour[X]) -> X:

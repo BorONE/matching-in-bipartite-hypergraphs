@@ -1,6 +1,6 @@
 import random
 
-from trace import Trace
+from lib.trace import Trace
 from lib.solution import Solution
 
 
@@ -26,8 +26,7 @@ def AssignRandomIdleCandidateToRandomRouteIfPossible(
 
     for candidate, route in solution.iter_candidates(busy=False, shuffle=True):
         assert route is None
-        routes = list(trace.candidates[candidate])
-        route = random.choice(routes)
+        route, score = random.choice(trace.candidates_linear[candidate])
         if not solution.customer_overlap(trace.customers_by_route[route]):
             found = True
             break

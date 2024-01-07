@@ -20,8 +20,10 @@ class Trace:
         yandex_score: float = 0,
     ) -> None:
         self.candidates = candidates
+        self.candidates_linear = {candidate: list(routes.items()) for candidate, routes in candidates.items()}
         self.customers_by_route = customers_by_route
         self.yandex_score = yandex_score
+
 
 def from_df(trace: pd.DataFrame, routes: pd.DataFrame) -> Trace:
     return Trace(
