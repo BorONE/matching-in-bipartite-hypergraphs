@@ -89,13 +89,20 @@ def get_diff(target, actual, /, *, fancy=False):
 
     return total_diff, total_diff_rel
 
+
 def total_diff(
     *tasks: Task,
     last_n: int | None=None,
     ignore_many_solutions=False,
-    figsize=(6.4, 4.8)
+    figsize=(6.4, 4.8),
+    sort_by_baseline: bool=True,
 ) -> None:
     baseline_scores, ours_scores = _split_scores(*tasks, last_n=last_n)
+
+    if not sort_by_baseline:
+        both_scores = list(zip(baseline_scores, ours_scores))
+        both_scores = sorted(both_scores, key=lambda score: score[1])
+        baseline_scores, ours_scores = zip(*both_scores)
 
     assert ignore_many_solutions or all(len(task_scores) == 1 for task_scores in ours_scores)
     ours_scores = [task_scores[0] for task_scores in ours_scores]
@@ -140,6 +147,7 @@ def total_diff_interval(
     baseline_scores, ours_scores = _split_scores(*tasks, last_n=last_n, rel=rel)
 
     # duplicate to prettify fill_between
+    x = list(_duplicate(range(len(tasks))))[1:] + [len(tasks)]
     baseline_scores = list(_duplicate(iter(baseline_scores)))
     ours_scores = list(_duplicate(iter(ours_scores)))
 
@@ -185,15 +193,13 @@ def total_diff_interval(
             is_green.append(False)
             is_red.append(True)
 
-    x = range(len(baseline_scores))
-
     plt.figure()
 
     plt.grid(color='gray', linestyle=':', linewidth=1)
 
     plt.fill_between(x, upper_green, lower_green, color='green', alpha=0.5, label='ours (better)', where=is_green)
     plt.fill_between(x, upper_red, lower_red, color='red', alpha=0.5, label='ours (worse)', where=is_red)
-    plt.plot(baseline_scores, alpha=.2, color='b', label='baseline')
+    plt.plot(x, baseline_scores, alpha=.2, color='b', label='baseline')
 
     _abs, rel_lower = get_diff(baseline_scores, lower, fancy=True)
     _abs, rel_upper = get_diff(baseline_scores, upper, fancy=True)
