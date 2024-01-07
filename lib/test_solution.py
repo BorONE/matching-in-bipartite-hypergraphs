@@ -28,6 +28,30 @@ def generate_trace():
     )
 
 
+def test_get_candidates_on_customers():
+    trace = generate_trace()
+    a = Solution.empty(trace)
+    a.make_busy("Sam Porter Bridges", "r1")
+    assert a.get_candidates_on_customers({"A"}) == {"Sam Porter Bridges"}
+    a.make_idle("Sam Porter Bridges")
+    a.make_busy("Sam Porter Bridges", "r2")
+    assert a.get_candidates_on_customers({"A"}) == {"Sam Porter Bridges"}
+    assert a.get_candidates_on_customers({"A", "B"}) == {"Sam Porter Bridges"}
+    assert a.get_candidates_on_customers({"B"}) == {"Sam Porter Bridges"}
+    a.make_busy("The Veteran Porter", "r5")
+    assert a.get_candidates_on_customers({"C"}) == {"The Veteran Porter"}
+    assert a.get_candidates_on_customers({"A", "C"}) == {"Sam Porter Bridges", "The Veteran Porter"}
+    assert a.get_candidates_on_customers({"B"}) == {"Sam Porter Bridges"}
+
+    a = a.diff()
+
+    assert a.get_candidates_on_customers({"A", "B", "C"}) == {"Sam Porter Bridges", "The Veteran Porter"}
+    a.make_idle("Sam Porter Bridges")
+    assert a.get_candidates_on_customers({"C"}) == {"The Veteran Porter"}
+    a.make_busy("Sam Porter Bridges", "r1")
+    assert a.get_candidates_on_customers({"A", "C"}) == {"Sam Porter Bridges", "The Veteran Porter"}
+
+
 def compare(a: Solution, b: Solution, customers: set[str]):
     assert a.get_score() == b.get_score()
     assert a.get_busy_candidates_count() == b.get_busy_candidates_count()
