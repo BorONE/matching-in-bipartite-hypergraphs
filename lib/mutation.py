@@ -58,24 +58,11 @@ def AssignRandomIdleCandidateToRandomRouteTillImpossible(
 
 def MakeRoomForRandomCandidate(
         solution: Solution, epoch: int, trace: Trace) -> None:
-    # TODO optimize:
-    # TODO 1 better cycle
-    # TODO 2 used customers know their candidates
-
-    candidate, route = solution.get_random_candidate()
-    if route is not None:
+    candidate, _route = solution.get_random_candidate()
+    room = set().union(*(trace.customers_by_route[route] for route in trace.candidates[candidate]))
+    room = solution.customer_overlap(room)
+    for candidate in solution.get_candidates_on_customers(room):
         solution.make_idle(candidate)
-
-    room = set()
-    for route in trace.candidates[candidate]:
-        room |= trace.customers_by_route[route]
-
-    # let the gods help us (TODO very bad, very good or smth in between performance)
-    while solution.customer_overlap(room):
-        candidate, route = solution.get_random_busy_candidate()
-        if trace.customers_by_route[route] & room:
-            solution.make_idle(candidate)
-
     return True
 
 
