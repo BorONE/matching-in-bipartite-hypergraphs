@@ -26,7 +26,7 @@ class Solver:
 
     def _mutate(self, solution: Solution, epoch: int) -> Solution:
         solution = solution.diff()
-        self.mutation(solution, epoch, solution.trace)
+        self.mutation(solution, epoch)
         return solution
 
     def anneal(self, temp_it):
