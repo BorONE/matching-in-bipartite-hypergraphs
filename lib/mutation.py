@@ -82,3 +82,18 @@ def conditional(mutation_on_true, /, *, epoch_predicat):
         else:
             return False
     return f
+
+
+def concat(*mutations, success_if='always'):
+    success_ifs = {
+        'always': lambda results: True,
+        'any': lambda results: any(results),
+        'all': lambda results: all(results),
+    }
+
+    assert success_if in success_ifs
+    success = success_ifs[success_if]
+
+    def impl(solution, epoch, _) -> bool:
+        return success([mutation(solution, epoch, solution.trace) for mutation in mutations])
+    return impl
