@@ -5,9 +5,10 @@ from lib.solution import Solution
 
 
 def TryAssignRandomIdleCandidateToRandomRoute(
-        solution: Solution, epoch: int, trace: Trace) -> None:
+        solution: Solution, epoch: int) -> bool:
+    trace = solution.trace
     if solution.get_idle_candidates_count() == 0:
-        return
+        return False
 
     candidate, _route = solution.get_random_idle_candidate()
 
@@ -21,7 +22,8 @@ def TryAssignRandomIdleCandidateToRandomRoute(
 
 
 def AssignRandomIdleCandidateToRandomRouteIfPossible(
-        solution: Solution, epoch: int, trace: Trace) -> None:
+        solution: Solution, epoch: int) -> bool:
+    trace = solution.trace
     found = False
 
     for candidate, route in solution.iter_candidates(busy=False, shuffle=True):
@@ -32,14 +34,14 @@ def AssignRandomIdleCandidateToRandomRouteIfPossible(
             break
 
     if not found:
-        return
+        return False
 
     solution.make_busy(candidate, route)
     return True
 
 
 def TryRecallRandomBusyCandidate(
-        solution: Solution, epoch: int, trace: Trace) -> None:
+        solution: Solution, epoch: int) -> bool:
     if solution.get_busy_candidates_count() == 0:
         return
 
@@ -49,33 +51,21 @@ def TryRecallRandomBusyCandidate(
 
 
 def AssignRandomIdleCandidateToRandomRouteTillImpossible(
-        solution: Solution, epoch: int, trace: Trace) -> None:
+        solution: Solution, epoch: int) -> bool:
     success = True
     while success:
-        success = AssignRandomIdleCandidateToRandomRouteIfPossible(solution, epoch, trace)
+        success = AssignRandomIdleCandidateToRandomRouteIfPossible(solution, epoch)
     return True
 
 
 def MakeRoomForRandomCandidate(
-        solution: Solution, epoch: int, trace: Trace) -> None:
-    # TODO optimize:
-    # TODO 1 better cycle
-    # TODO 2 used customers know their candidates
-
-    candidate, route = solution.get_random_candidate()
-    if route is not None:
+        solution: Solution, epoch: int) -> bool:
+    trace = solution.trace
+    candidate, _route = solution.get_random_candidate()
+    room = set().union(*(trace.customers_by_route[route] for route in trace.candidates[candidate]))
+    room = solution.customer_overlap(room)
+    for candidate in solution.get_candidates_on_customers(room):
         solution.make_idle(candidate)
-
-    room = set()
-    for route in trace.candidates[candidate]:
-        room |= trace.customers_by_route[route]
-
-    # let the gods help us (TODO very bad, very good or smth in between performance)
-    while solution.customer_overlap(room):
-        candidate, route = solution.get_random_busy_candidate()
-        if trace.customers_by_route[route] & room:
-            solution.make_idle(candidate)
-
     return True
 
 
@@ -89,9 +79,24 @@ def MakeRoomForRandomCandidate(
 
 
 def conditional(mutation_on_true, /, *, epoch_predicat):
-    def f(solution: Solution, epoch: int, trace: Trace):
+    def f(solution: Solution, epoch: int):
         if epoch_predicat(epoch):
-            return mutation_on_true(solution, epoch, trace)
+            return mutation_on_true(solution, epoch)
         else:
             return False
     return f
+
+
+def concat(*mutations, success_if='always'):
+    success_ifs = {
+        'always': lambda results: True,
+        'any': lambda results: any(results),
+        'all': lambda results: all(results),
+    }
+
+    assert success_if in success_ifs
+    success = success_ifs[success_if]
+
+    def impl(solution, epoch) -> bool:
+        return success([mutation(solution, epoch) for mutation in mutations])
+    return impl

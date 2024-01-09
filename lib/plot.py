@@ -4,6 +4,7 @@ import typing as tp
 from math import floor, ceil
 
 from lib.task import Task
+from lib.fun.iterators import duplicate
 
 
 def solve_history(
@@ -129,15 +130,6 @@ def total_diff(
 # TODO refactor below
 # or even think of smth better
 
-T = tp.TypeVar
-
-
-def _duplicate(it: tp.Iterator[T], n: int=2) -> tp.Iterator[T]:
-    for elem in it:
-        for i in range(n):
-            yield elem
-
-
 def total_diff_interval(
     *tasks: Task,
     confidence_interval: tuple[float, float] | None=None,
@@ -147,9 +139,9 @@ def total_diff_interval(
     baseline_scores, ours_scores = _split_scores(*tasks, last_n=last_n, rel=rel)
 
     # duplicate to prettify fill_between
-    x = list(_duplicate(range(len(tasks))))[1:] + [len(tasks)]
-    baseline_scores = list(_duplicate(iter(baseline_scores)))
-    ours_scores = list(_duplicate(iter(ours_scores)))
+    x = list(duplicate(range(len(tasks))))[1:] + [len(tasks)]
+    baseline_scores = list(duplicate(iter(baseline_scores)))
+    ours_scores = list(duplicate(iter(ours_scores)))
 
 
     assert confidence_interval is not None, "expected confidence_interval"

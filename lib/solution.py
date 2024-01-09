@@ -16,7 +16,7 @@ DEBUG = False
 class Solution:
     idle_candidates: DictWithRandomChoice[TCandidateKey, None]
     busy_candidates: DictWithRandomChoice[TCandidateKey, TRouteKey]
-    used_customers: set[TCustomerKey]
+    used_customers: dict[TCustomerKey, TCandidateKey]
     score: float
 
     trace: Trace
@@ -26,7 +26,7 @@ class Solution:
         return Solution(
             idle_candidates=DictWithRandomChoice.fromkeys(trace.candidates.keys()),
             busy_candidates=DictWithRandomChoice(),
-            used_customers=set(),
+            used_customers=dict(),
             score=0,
             trace=trace,
         )
@@ -36,14 +36,15 @@ class Solution:
             assert len(self.customer_overlap(self.trace.customers_by_route[route])) == 0
         self.idle_candidates.remove(candidate)
         self.busy_candidates.add(candidate, route)
-        self.used_customers |= self.trace.customers_by_route[route]
+        self.used_customers |= dict.fromkeys(self.trace.customers_by_route[route], candidate)
         self.score += self.trace.candidates[candidate][route]
 
     def make_idle(self, candidate: TCandidateKey) -> None:
         route = self.busy_candidates[candidate]
         self.idle_candidates.add(candidate, None)
         self.busy_candidates.remove(candidate)
-        self.used_customers -= self.trace.customers_by_route[route]
+        for customer in self.trace.customers_by_route[route]:
+            self.used_customers.pop(customer)
         self.score -= self.trace.candidates[candidate][route]
 
     def get_idle_candidates_count(self) -> int:
@@ -75,7 +76,7 @@ class Solution:
         return shuffled_sequence(candidates) if shuffle else iter(candidates)
 
     def customer_overlap(self, customers) -> set[TCustomerKey]:
-        return self.used_customers & customers
+        return self.used_customers.keys() & customers
 
     def get_score(self) -> float:
         return self.score
@@ -87,7 +88,7 @@ class Solution:
             idle_candidates=DictWithRandomChoice(),
             busy_candidates=DictWithRandomChoice(),
             busy_candidates_count=self.get_busy_candidates_count(),
-            used_customers=set(),
+            used_customers=dict(),
             unused_customers=set(),
             score=self.score,
             trace=self.trace,
@@ -97,6 +98,12 @@ class Solution:
         if candidate in self.idle_candidates:
             return None
         return self.busy_candidates[candidate]
+    
+    def get_candidates_on_customers(self, customers: tp.Iterable[TCustomerKey]) -> set[TCandidateKey]:
+        result = set()
+        for customer in customers:
+            result.add(self.used_customers[customer])
+        return result
 
     # DEBUG
     def dump(self):
@@ -117,6 +124,7 @@ class Solution:
             route_customers = self.trace.customers_by_route[route]
             overlap = used_customers.keys() & route_customers
             assert not overlap, "got overlapping customers"
+            used_customers |= dict.fromkeys(route_customers, candidate)
 
             score += self.trace.candidates[candidate][route]
         assert score == self.get_score()
@@ -143,7 +151,7 @@ class SolutionDiff:
     idle_candidates: DictWithRandomChoice[TCandidateKey, None]
     busy_candidates: DictWithRandomChoice[TCandidateKey, TRouteKey]
     busy_candidates_count: int
-    used_customers: set[TCustomerKey]
+    used_customers: dict[TCustomerKey, TCandidateKey]
     unused_customers: set[TCustomerKey]
     score: float
 
@@ -163,7 +171,7 @@ class SolutionDiff:
         else:
             self.busy_candidates.add(candidate, route)
 
-        self.used_customers |= self.trace.customers_by_route[route]
+        self.used_customers |= dict.fromkeys(self.trace.customers_by_route[route], candidate)
         self.unused_customers -= self.trace.customers_by_route[route]
         self.score += self.trace.candidates[candidate][route]
 
@@ -179,8 +187,11 @@ class SolutionDiff:
         else:
             self.idle_candidates.add(candidate, None)
 
+        for customer in self.trace.customers_by_route[route]:
+            # ignore missing item, since it can be present only in parent
+            # in case of an actual error, the error will be trigger in the apply
+            self.used_customers.pop(customer, None)
         self.unused_customers |= self.parent.customer_overlap(self.trace.customers_by_route[route])
-        self.used_customers -= self.trace.customers_by_route[route]
         self.score -= self.trace.candidates[candidate][route]
 
     def get_idle_candidates_count(self) -> int:
@@ -238,7 +249,7 @@ class SolutionDiff:
         return SkipNoneIterator(shuffled_sequence(candidates) if shuffle else iter(candidates))
 
     def customer_overlap(self, customers) -> set[TCustomerKey]:
-        return (self.parent.customer_overlap(customers) | (self.used_customers & customers)) - self.unused_customers
+        return (self.parent.customer_overlap(customers) | (self.used_customers.keys() & customers)) - self.unused_customers
 
     def get_score(self) -> float:
         return self.score
@@ -256,7 +267,7 @@ class SolutionDiff:
             idle_candidates=DictWithRandomChoice(),
             busy_candidates=DictWithRandomChoice(),
             busy_candidates_count=self.busy_candidates_count,
-            used_customers=set(),
+            used_customers=dict(),
             unused_customers=set(),
             score=self.score,
             trace=self.trace,
@@ -278,6 +289,11 @@ class SolutionDiff:
             self.parent.make_busy(candidate, route)
         return self.parent
 
+    def get_candidates_on_customers(self, customers: set[TCustomerKey]) -> set[TCandidateKey]:
+        result = {self.used_customers[customer] for customer in customers & self.used_customers.keys()}
+        assert len(customers & self.unused_customers) == 0
+        return result | self.parent.get_candidates_on_customers(customers - self.used_customers.keys())
+
     # DEBUG
     def dump(self):
         return *self.parent.dump(), dict(
@@ -298,6 +314,7 @@ class SolutionDiff:
             route_customers = self.trace.customers_by_route[route]
             overlap = used_customers.keys() & route_customers
             assert not overlap, "got overlapping customers"
+            used_customers |= dict.fromkeys(route_customers, candidate)
 
             score += self.trace.candidates[candidate][route]
         assert score == self.get_score()
