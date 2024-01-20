@@ -20,9 +20,14 @@ class Trace:
         yandex_score: float = 0,
     ) -> None:
         self.candidates = candidates
-        self.candidates_linear = {candidate: list(routes.items()) for candidate, routes in candidates.items()}
         self.customers_by_route = customers_by_route
         self.yandex_score = yandex_score
+
+        self.candidates_linear, self.sorted_scores = dict(), dict()
+        for candidate, routes in candidates.items():
+            sorted_routes_n_scores = sorted(routes.items(), key=lambda item: item[1], reverse=True)
+            self.candidates_linear[candidate] = sorted_routes_n_scores
+            _, self.sorted_scores[candidate] = zip(*sorted_routes_n_scores)
 
 
 def from_df(trace: pd.DataFrame, routes: pd.DataFrame) -> Trace:
