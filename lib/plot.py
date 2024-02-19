@@ -125,6 +125,8 @@ def total_diff(
 
     _abs, rel = get_diff(baseline_scores, ours_scores, fancy=True)
     plt.title(rel)
+    plt.xlabel('trace')
+    plt.ylabel('score')
 
 
 # TODO refactor below
