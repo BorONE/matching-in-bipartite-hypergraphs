@@ -1,60 +1,52 @@
 import numpy as np
 import random
 
-from lib.mut.util import _try_make_busy, _try_make_busy_greedy
+from lib.mut.util import _try_make_busy_greedy, _try_make_busy_weighted_random
 from lib.solution import Solution
 from lib.trace import TCandidateKey, TRouteKey, TCustomerKey
+from lib.fun.math import softmax_for_choices
+from lib.fun.iterators import take
 
 
-def TryMakeBusyRandomCandidateWithRandomRoute(
-        solution: Solution, epoch: int) -> bool:
-    
-    if solution.get_idle_candidates_count() == 0:
-        return False
-
-    candidate, _route = solution.get_random_idle_candidate()
-    route, _score = random.choices(solution.trace.candidates_linear[candidate], weights=solution.trace.sorted_scores[candidate])[0]
-    return _try_make_busy(solution, candidate, route)
-
-
-def TryMakeBusyRandomCandidateWithGreedyRoute(
-        solution: Solution, epoch: int) -> bool:
-
-    if solution.get_idle_candidates_count() == 0:
-        return False
-
-    candidate, _route = solution.get_random_idle_candidate()
-    return _try_make_busy_greedy(solution, candidate)
-
-
-def TryMakeIdleRandomCandidate(
-        solution: Solution, epoch: int) -> bool:
-    
-    if solution.get_busy_candidates_count() == 0:
-        return
-
-    candidate, _route = solution.get_random_busy_candidate()
-    solution.make_idle(candidate)
-    return True
-
-
-def TryMakeBusyAnyCandidateWithGreedyRoute(
-        solution: Solution, epoch: int) -> bool:
-    
-    for candidate, route in solution.iter_candidates(busy=False, shuffle=True):
-        if _try_make_busy_greedy(solution, candidate):
+class MakeIdle:
+    def __call__(self, solution: Solution, epoch: int) -> bool:
+        if solution.get_busy_candidates_count() > 0:
+            candidate, _route = solution.get_random_busy_candidate()
+            solution.make_idle(candidate)
             return True
-    return False
+        return False
 
-def TryMakeBusyAllCandidateWithGreedyRoute(
-        solution: Solution, epoch: int) -> bool:
 
-    # since make_busy ivalidates iter_candidates
-    cached_solution = solution.diff()
-    for candidate, route in list(solution.iter_candidates(busy=False, shuffle=True)):
-        _try_make_busy_greedy(cached_solution, candidate)
-    cached_solution.apply()
-    return True
+class RandomMakeBusy:
+    def __init__(self, candidate_retries: int=1) -> None:
+        self.candidate_retries = candidate_retries
+    def __call__(self, solution: Solution, epoch: int) -> bool:   
+        idle_candidates = solution.iter_candidates(busy=False, shuffle=True)
+        for candidate, route in take(idle_candidates, n=self.candidate_retries):
+            if _try_make_busy_weighted_random(solution, candidate):
+                return True
+        return False
+
+
+class GreedyMakeBusy:
+    def __init__(self, candidate_retries: int=1) -> None:
+        self.candidate_retries = candidate_retries
+    def __call__(self, solution: Solution, epoch: int) -> bool:   
+        idle_candidates = solution.iter_candidates(busy=False, shuffle=True)
+        for candidate, route in take(idle_candidates, n=self.candidate_retries):
+            if _try_make_busy_greedy(solution, candidate):
+                return True
+        return False
+
+
+class GreedyMakeBusyAll:
+    def __call__(self, solution: Solution, epoch: int) -> bool:   
+        # since make_busy ivalidates iter_candidates
+        buffered_solution = solution.diff()
+        for candidate, route in solution.iter_candidates(busy=False, shuffle=True):
+            _try_make_busy_greedy(buffered_solution, candidate)
+        buffered_solution.apply()
+        return True
 
 
 def MakeRoomForRandomCandidate(
@@ -70,10 +62,13 @@ def MakeRoomForRandomCandidate(
 
 
 class FlipBase:
-    def try_random_pick(self, candidate, solution, overlap: set):
+    def __init__(self, temperature: float=1) -> None:
+        self.temperature = temperature
+
+    def try_wrandom_pick(self, candidate, solution, overlap: set):
         routes_n_scores = solution.trace.candidates_linear[candidate]
         _, scores = zip(*routes_n_scores) # TODO preprocess
-        cum_weights = self.softmax(scores, for_choices=True)
+        cum_weights = softmax_for_choices(scores, temperature=self.temperature)
         for retry in range(self.random_pick_retries):
             route, score = random.choices(routes_n_scores, cum_weights=cum_weights, k=1)[0]
             if not overlap(solution.trace.customers_by_route[route]):
@@ -86,26 +81,11 @@ class FlipBase:
             if not overlap(solution.trace.customers_by_route[route]):
                 return route
         return None
-
-    def softmax(self, x, for_choices=False):
-        """
-        :param x:
-        :param temperature:
-        
-        note that:
-            t -> +inf => softmax -> np.arange(n) / n
-            t -> 0 => softmax -> (0, .. 1, .. 0) with 1 at pos argmax()
-        """
-        result = np.array(x) - max(x) # hack to deal with overflow
-        result = np.exp(result / self.temperature)
-        if for_choices:
-            return np.cumsum(result)
-        return result / result.sum()
     
 
 class Flip(FlipBase):
     def __init__(self, temperature: float=1, random_pick_retries: int=5) -> None:
-        self.temperature = temperature
+        super().__init__(temperature)
         self.random_pick_retries = random_pick_retries
 
     def __call__(self, solution: Solution, epoch: int) -> bool:
@@ -115,7 +95,7 @@ class Flip(FlipBase):
         candidate, _route = solution.get_random_busy_candidate()
 
         route = None
-        route = route or self.try_random_pick(candidate, solution, solution.customer_overlap)
+        route = route or self.try_wrandom_pick(candidate, solution, solution.customer_overlap)
         route = route or self.try_determined_pick(candidate, solution, solution.customer_overlap)
         if route is None:
             return False
@@ -127,8 +107,8 @@ class Flip(FlipBase):
 
 class FlippityFlop(FlipBase):
     def __init__(self, limit: int, temperature: float=1, random_pick_retries: int=5) -> None:
+        super().__init__(temperature)
         self.limit = limit
-        self.temperature = temperature
         self.random_pick_retries = random_pick_retries
     
     def __call__(self, solution: Solution, epoch: int) -> bool:
@@ -146,7 +126,7 @@ class FlippityFlop(FlipBase):
             assert candidate not in q[:i]
 
             route = None
-            route = route or self.try_random_pick(candidate, solution, lambda c: c & fixed_customers)
+            route = route or self.try_wrandom_pick(candidate, solution, lambda c: c & fixed_customers)
             route = route or self.try_determined_pick(candidate, solution, lambda c: c & fixed_customers)
             if route is None:
                 continue
