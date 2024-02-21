@@ -12,7 +12,8 @@ def solve_history(
     exclude_init: bool=False,
     last_n: int | None=None,
     subplot_figsize: tuple=(7.5, 3),
-    alpha: float=0.5
+    alpha: float=0.5,
+    show_baseline: bool=True,
 ) -> None:
     cols, rows = 2, (len(tasks) - 1) // 2 + 1
     figsize = (subplot_figsize[0] * cols, subplot_figsize[1] * rows)
@@ -47,7 +48,9 @@ def solve_history(
             plt.plot(reach[0], color='green', alpha=alpha, label=f'baseline reached ({reach_frac}%)')
             plt.plot(list(zip(*reach[1:])), color='green', alpha=alpha)
 
-        plt.plot([baseline] * len(all_scores[0]), label='baseline', color='blue', ls=':')
+        if show_baseline:
+            plt.plot([baseline] * len(all_scores[0]), label='baseline', color='blue', ls=':')
+
         plt.legend()
 
         if i % 2 == 1:

@@ -1,3 +1,5 @@
+import random
+
 from lib.solution import Solution
 from lib.trace import TCandidateKey, TRouteKey, TCustomerKey
 
@@ -15,3 +17,8 @@ def _try_make_busy_greedy(solution: Solution, candidate: TCandidateKey) -> bool:
             return True
     return False
 
+def _try_make_busy_weighted_random(solution: Solution, candidate: TCandidateKey) -> bool:
+    route, _score = random.choices(solution.trace.candidates_linear[candidate], weights=solution.trace.sorted_scores[candidate])[0]
+    if _try_make_busy(solution, candidate, route):
+        return True
+    return False

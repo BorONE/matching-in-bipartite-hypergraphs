@@ -58,3 +58,7 @@ def randomize(
         mutation = concat(*random.choices(mutations, cum_weights=weights, k=k))
         return mutation(solution, epoch)
     return impl
+
+
+def initializer(mutation: IMutation):
+    return conditional(mutation, epoch_predicat=lambda epoch: epoch == 0)
